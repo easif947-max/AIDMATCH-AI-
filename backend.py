@@ -250,7 +250,7 @@ def run_matching_pipeline(user_profile: Dict[str, Any]) -> List[Dict[str, Any]]:
 # GROQ BILINGUAL AI CHATBOT
 # ---------------------------------------------------------
 class GroqAssistant:
-    def __init__(self, model_name: str = "llama-3.3-70b-versatile"):
+    def __init__(self, model_name: str = "openai/gpt-oss-20b"):
         self.client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
         self.model_name = model_name
 
