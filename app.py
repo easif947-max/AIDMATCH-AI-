@@ -75,12 +75,17 @@ init_db()
 # Automatically run seeding script if database programs table is empty
 import seed
 
+# ==========================================
+# 1. SESSION STATE INITIALIZATION
+# ==========================================
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 if "user" not in st.session_state:
     st.session_state["user"] = None
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
+if "eval_results" not in st.session_state:
+    st.session_state["eval_results"] = None
 
 # AUTHENTICATION WALL
 if not st.session_state["authenticated"]:
@@ -146,6 +151,7 @@ if st.sidebar.button("Logout / Lock Session"):
     st.session_state["authenticated"] = False
     st.session_state["user"] = None
     st.session_state["messages"] = []
+    st.session_state["eval_results"] = None
     st.rerun()
 
 # RESULTS RENDERER
@@ -195,16 +201,29 @@ def render_all_results(results):
                 st.write(f"• {r}")
 
         col_a, col_b = st.columns(2)
+        
+        # PERSISTENT DOCUMENT CHECKLIST TRACKER
         with col_a:
             st.write("**📋 Required Documents & Quotas:**")
-            for doc in prog["document_checklist"]:
-                st.checkbox(doc, key=f"{prog['program_id']}_{doc}")
+            all_docs_checked = True
+            for doc_idx, doc in enumerate(prog["document_checklist"]):
+                # Create a persistent session state key for every document checkbox
+                doc_key = f"doc_{prog['program_id']}_{doc_idx}"
+                is_checked = st.checkbox(doc, key=doc_key)
+                if not is_checked:
+                    all_docs_checked = False
+
+        # DIRECT APPLICATION PATHWAY (Reveals when all docs checked)
         with col_b:
             st.write("**🚀 Direct Application Pathway:**")
-            for idx, step in enumerate(prog["apply_pathway"], 1):
-                st.write(f"{idx}. {step}")
+            if all_docs_checked:
+                st.success("🎉 Document Requirements Complete!")
+                for idx, step in enumerate(prog["apply_pathway"], 1):
+                    st.write(f"{idx}. {step}")
+                st.link_button(f"Visit Official Portal ({prog['provider']})", prog["official_url"])
+            else:
+                st.info("💡 Please check off all required documents on the left to unlock application steps and direct portal link.")
 
-        st.link_button(f"Visit Official Portal ({prog['provider']})", prog["official_url"])
         st.divider()
 
 # CATEGORY EVALUATION FORMS
@@ -225,6 +244,7 @@ if nav_choice in ["🎓 Free Courses & Skill Development", "💰 Scholarships & 
 
         submit_btn = st.form_submit_button("Evaluate All Programs in This Category")
 
+    # Save to session_state so re-renders don't delete results
     if submit_btn:
         profile = {
             "user_id": st.session_state["user"]["user_id"],
@@ -237,8 +257,11 @@ if nav_choice in ["🎓 Free Courses & Skill Development", "💰 Scholarships & 
             "is_disabled": is_disabled,
             "has_driving_license": license_status
         }
-        results = run_matching_pipeline(profile)
-        render_all_results(results)
+        st.session_state["eval_results"] = run_matching_pipeline(profile)
+
+    # Render results whenever session_state has data
+    if st.session_state["eval_results"] is not None:
+        render_all_results(st.session_state["eval_results"])
 
 # PRIVATE SEARCH HISTORY LOG
 elif nav_choice == "📜 Private Search History":
@@ -274,4 +297,4 @@ elif nav_choice == "💬 Bilingual Assistant / مددگار":
             with st.spinner("Searching official guidance..."):
                 response = bot.generate_bilingual_response(user_input, st.session_state["messages"][:-1])
                 st.write(response)
-                st.session_state["messages"].append({"role": "assistant", "content": response})
+                st.session_state["messages"].append({"role": "assistant","content": response})
