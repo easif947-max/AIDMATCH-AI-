@@ -86,6 +86,8 @@ if "messages" not in st.session_state:
     st.session_state["messages"] = []
 if "eval_results" not in st.session_state:
     st.session_state["eval_results"] = None
+if "current_category" not in st.session_state:
+    st.session_state["current_category"] = None
 
 # AUTHENTICATION WALL
 if not st.session_state["authenticated"]:
@@ -147,11 +149,17 @@ nav_choice = st.sidebar.radio("Navigation Category", [
     "💬 Bilingual Assistant / مددگار"
 ])
 
+# RESET RESULTS WHEN USER SWITCHES CATEGORY
+if st.session_state["current_category"] != nav_choice:
+    st.session_state["eval_results"] = None
+    st.session_state["current_category"] = nav_choice
+
 if st.sidebar.button("Logout / Lock Session"):
     st.session_state["authenticated"] = False
     st.session_state["user"] = None
     st.session_state["messages"] = []
     st.session_state["eval_results"] = None
+    st.session_state["current_category"] = None
     st.rerun()
 
 # RESULTS RENDERER
@@ -207,13 +215,12 @@ def render_all_results(results):
             st.write("**📋 Required Documents & Quotas:**")
             all_docs_checked = True
             for doc_idx, doc in enumerate(prog["document_checklist"]):
-                # Create a persistent session state key for every document checkbox
                 doc_key = f"doc_{prog['program_id']}_{doc_idx}"
                 is_checked = st.checkbox(doc, key=doc_key)
                 if not is_checked:
                     all_docs_checked = False
 
-        # DIRECT APPLICATION PATHWAY (Reveals when all docs checked)
+        # DIRECT APPLICATION PATHWAY
         with col_b:
             st.write("**🚀 Direct Application Pathway:**")
             if all_docs_checked:
@@ -222,7 +229,7 @@ def render_all_results(results):
                     st.write(f"{idx}. {step}")
                 st.link_button(f"Visit Official Portal ({prog['provider']})", prog["official_url"])
             else:
-                st.info("💡 Please check off all required documents on the left to unlock application steps and direct portal link.")
+                st.info("💡 Check off all required documents on the left to unlock application steps and portal link.")
 
         st.divider()
 
@@ -244,7 +251,7 @@ if nav_choice in ["🎓 Free Courses & Skill Development", "💰 Scholarships & 
 
         submit_btn = st.form_submit_button("Evaluate All Programs in This Category")
 
-    # Save to session_state so re-renders don't delete results
+    # Store search results in session_state when button clicked
     if submit_btn:
         profile = {
             "user_id": st.session_state["user"]["user_id"],
@@ -259,7 +266,7 @@ if nav_choice in ["🎓 Free Courses & Skill Development", "💰 Scholarships & 
         }
         st.session_state["eval_results"] = run_matching_pipeline(profile)
 
-    # Render results whenever session_state has data
+    # Render results if available for current category
     if st.session_state["eval_results"] is not None:
         render_all_results(st.session_state["eval_results"])
 
